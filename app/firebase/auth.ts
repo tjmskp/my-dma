@@ -1,8 +1,8 @@
-import { auth } from './config';
+import { auth } from '@/app/firebase/config';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
-  signOut as firebaseSignOut,
+  signOut,
   UserCredential,
   GoogleAuthProvider,
   FacebookAuthProvider,
@@ -10,31 +10,17 @@ import {
   AuthError
 } from 'firebase/auth';
 
-export const signUp = async (email: string, password: string): Promise<UserCredential> => {
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    return userCredential;
-  } catch (error) {
-    throw error;
-  }
-};
+export async function signUp(email: string, password: string): Promise<UserCredential> {
+  return createUserWithEmailAndPassword(auth, email, password);
+}
 
-export const signIn = async (email: string, password: string): Promise<UserCredential> => {
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return userCredential;
-  } catch (error) {
-    throw error;
-  }
-};
+export async function signIn(email: string, password: string): Promise<UserCredential> {
+  return signInWithEmailAndPassword(auth, email, password);
+}
 
-export const signOut = async (): Promise<void> => {
-  try {
-    await firebaseSignOut(auth);
-  } catch (error) {
-    throw error;
-  }
-};
+export async function signOutUser(): Promise<void> {
+  return signOut(auth);
+}
 
 interface GoogleSignInResult {
   userCredential: UserCredential;

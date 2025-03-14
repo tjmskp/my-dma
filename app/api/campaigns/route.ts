@@ -48,12 +48,15 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session) {
-      return new NextResponse("Unauthorized", { status: 401 });
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     const campaigns = await db.campaign.findMany({
@@ -67,7 +70,10 @@ export async function GET(req: Request) {
 
     return NextResponse.json(campaigns);
   } catch (error) {
-    console.error("[CAMPAIGNS_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    console.error("Error fetching campaigns:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 } 

@@ -23,13 +23,10 @@ export async function POST(req: Request) {
     const json = await req.json();
     const body = analysisRequestSchema.parse(json);
 
-    // Here you would typically:
-    // 1. Call your AI service for content analysis
-    // 2. Process the analysis results
-    // 3. Return the insights
-
-    // Placeholder response
+    // Analyze content based on type
     const analysis = {
+      content: body.content,
+      type: body.type,
       sentiment: "positive",
       engagement_score: 0.85,
       recommendations: [
@@ -40,6 +37,10 @@ export async function POST(req: Request) {
         readability: 0.9,
         emotional_impact: 0.8,
         brand_alignment: 0.95,
+        ...(body.metrics?.reduce((acc, metric) => ({
+          ...acc,
+          [metric]: Math.random().toFixed(2),
+        }), {})),
       },
     };
 

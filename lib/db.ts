@@ -1,19 +1,17 @@
 import { PrismaClient } from "@prisma/client";
 import type { User as FirebaseUser } from 'firebase/auth';
 
-declare global {
-  var cachedPrisma: PrismaClient;
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+const db = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = db;
 }
 
-export let db: PrismaClient;
-if (process.env.NODE_ENV === "production") {
-  db = new PrismaClient();
-} else {
-  if (!global.cachedPrisma) {
-    global.cachedPrisma = new PrismaClient();
-  }
-  db = global.cachedPrisma;
-}
+export { db };
 
 interface ProviderData {
   provider: string;

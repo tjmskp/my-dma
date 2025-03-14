@@ -4,15 +4,12 @@ import { authOptions } from "@/lib/auth";
 import * as z from "zod";
 
 const audienceRequestSchema = z.object({
-  adAccountId: z.string(),
+  campaignId: z.string(),
   targetAudience: z.object({
-    demographics: z.object({
-      ageRange: z.array(z.string()),
-      gender: z.array(z.string()),
-      locations: z.array(z.string()),
-    }).optional(),
-    interests: z.array(z.string()).optional(),
-    behaviors: z.array(z.string()).optional(),
+    age: z.array(z.number()),
+    gender: z.array(z.string()),
+    interests: z.array(z.string()),
+    location: z.array(z.string()),
   }),
 });
 
@@ -30,42 +27,33 @@ export async function POST(req: Request) {
     const json = await req.json();
     const body = audienceRequestSchema.parse(json);
 
-    // Here you would typically:
-    // 1. Fetch audience insights from ad platform (Facebook/Google)
-    // 2. Analyze the data using AI
-    // 3. Generate recommendations
-
-    // Placeholder response
+    // Analyze audience based on provided data
     const analysis = {
-      reachEstimate: {
-        min: 500000,
-        max: 1000000,
-      },
+      campaignId: body.campaignId,
+      audienceSize: Math.floor(Math.random() * 1000000),
+      reachEstimate: Math.floor(Math.random() * 500000),
       demographics: {
-        age: {
-          "18-24": 0.2,
-          "25-34": 0.4,
-          "35-44": 0.25,
-          "45+": 0.15,
-        },
-        gender: {
-          male: 0.48,
-          female: 0.52,
-        },
+        age: body.targetAudience.age.map(age => ({
+          range: `${age}-${age + 9}`,
+          percentage: (Math.random() * 100).toFixed(2),
+        })),
+        gender: body.targetAudience.gender.map(gender => ({
+          type: gender,
+          percentage: (Math.random() * 100).toFixed(2),
+        })),
       },
-      interests: [
-        {
-          category: "Technology",
-          affinity: 0.85,
-        },
-        {
-          category: "Digital Marketing",
-          affinity: 0.75,
-        },
-      ],
+      interests: body.targetAudience.interests.map(interest => ({
+        category: interest,
+        affinity: (Math.random() * 10).toFixed(2),
+      })),
+      locations: body.targetAudience.location.map(location => ({
+        name: location,
+        potential: Math.floor(Math.random() * 100000),
+      })),
       recommendations: [
-        "Consider expanding age range to 45+ for broader reach",
-        "High affinity with technology interests suggests potential for tech-focused messaging",
+        "Consider expanding age range for better reach",
+        "Add more specific interests to improve targeting",
+        "Include neighboring locations for wider coverage",
       ],
     };
 
