@@ -6,7 +6,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Command,
   CreditCard,
   DollarSign,
   Edit,
@@ -33,10 +32,11 @@ import {
   User,
   Users,
   X,
-  type Icon as LucideIcon,
 } from "lucide-react";
 
-export type Icon = typeof Icons[keyof typeof Icons];
+import { FC } from "react";
+
+export type Icon = FC<LucideProps>;
 
 export const Icons = {
   logo: Rocket,
@@ -86,7 +86,6 @@ export const Icons = {
   twitter: Twitter,
   check: Check,
   plus: Plus,
-  calendar: Calendar,
   edit: Edit,
   barChart: BarChart,
   target: Target,
