@@ -54,6 +54,7 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true,
     }),
     CredentialsProvider({
       name: "credentials",
@@ -94,7 +95,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
         const existingUser = await prisma.user.findUnique({
           where: { email: user.email! },
@@ -110,11 +111,15 @@ export const authOptions: NextAuthOptions = {
               emailVerified: new Date(), // Mark as verified since it's Google
             },
           });
-        } else if (!existingUser.emailVerified) {
-          // If user exists but email not verified, verify it now
+        } else {
+          // Update existing user with Google information
           await prisma.user.update({
             where: { id: existingUser.id },
-            data: { emailVerified: new Date() },
+            data: {
+              emailVerified: new Date(),
+              name: user.name || existingUser.name,
+              image: user.image || existingUser.image,
+            },
           });
         }
       }
