@@ -1,7 +1,8 @@
 import {
   AlertTriangle,
   ArrowRight,
-  Calendar,
+  BarChart,
+  Bot,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -19,22 +20,26 @@ import {
   LucideProps,
   Moon,
   MoreVertical,
-  Pizza,
+  Play,
   Plus,
+  Pizza,
   Rocket,
   Settings,
   SunMedium,
+  Target,
   Trash,
+  TrendingUp,
   Twitter,
   User,
+  Users,
   X,
   type Icon as LucideIcon,
 } from "lucide-react";
 
-export type Icon = typeof LucideIcon;
+export type Icon = typeof Icons[keyof typeof Icons];
 
 export const Icons = {
-  logo: Command,
+  logo: Rocket,
   close: X,
   spinner: Loader2,
   chevronLeft: ChevronLeft,
@@ -60,6 +65,7 @@ export const Icons = {
   image: Image,
   dollarSign: DollarSign,
   logout: LogOut,
+  play: Play,
   google: ({ ...props }: LucideProps) => (
     <svg
       aria-hidden="true"
@@ -82,4 +88,12 @@ export const Icons = {
   plus: Plus,
   calendar: Calendar,
   edit: Edit,
-}; 
+  barChart: BarChart,
+  target: Target,
+  trendingUp: TrendingUp,
+  users: Users,
+  file: File,
+  fileText: FileText,
+  moreVertical: MoreVertical,
+  bot: Bot,
+} as const; 
