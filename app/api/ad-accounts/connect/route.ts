@@ -5,11 +5,10 @@ import { authOptions } from "@/lib/auth";
 import * as z from "zod";
 
 const adAccountSchema = z.object({
-  provider: z.enum(["facebook", "google"]),
+  platform: z.enum(["facebook", "google"]),
   accountId: z.string(),
-  accessToken: z.string(),
-  refreshToken: z.string().optional(),
-  expiresAt: z.number().optional(),
+  name: z.string(),
+  status: z.string().default("active"),
 });
 
 export async function POST(req: Request) {
@@ -28,11 +27,10 @@ export async function POST(req: Request) {
 
     const adAccount = await db.adAccount.create({
       data: {
-        provider: body.provider,
-        providerAccountId: body.accountId,
-        accessToken: body.accessToken,
-        refreshToken: body.refreshToken,
-        expiresAt: body.expiresAt,
+        platform: body.platform,
+        accountId: body.accountId,
+        name: body.name,
+        status: body.status,
         userId: session.user.id,
       },
     });
