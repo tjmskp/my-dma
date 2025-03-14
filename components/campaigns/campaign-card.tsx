@@ -19,16 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DeleteCampaignDialog } from "./delete-campaign-dialog";
-
-interface Campaign {
-  id: string;
-  name: string;
-  objective: string;
-  status: string;
-  budget: string;
-  startDate: Date;
-  endDate: Date;
-}
+import { Campaign } from "@/types/campaign";
 
 interface CampaignCardProps {
   campaign: Campaign;
