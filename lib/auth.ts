@@ -12,6 +12,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   providers: [
     GoogleProvider({
@@ -26,21 +27,25 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials");
+          throw new Error("Please enter your email and password");
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
+          where: { email: credentials.email.toLowerCase() }
         });
 
-        if (!user || !user.password) {
-          throw new Error("Invalid credentials");
+        if (!user) {
+          throw new Error("Invalid email or password");
+        }
+
+        if (!user.password) {
+          throw new Error("Please use the login method you used to create your account");
         }
 
         const isPasswordValid = await compare(credentials.password, user.password);
 
         if (!isPasswordValid) {
-          throw new Error("Invalid credentials");
+          throw new Error("Invalid email or password");
         }
 
         return {
@@ -53,6 +58,24 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === "google") {
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email! },
+        });
+        
+        if (!existingUser) {
+          await prisma.user.create({
+            data: {
+              email: user.email!,
+              name: user.name!,
+              image: user.image,
+            },
+          });
+        }
+      }
+      return true;
+    },
     async session({ token, session }) {
       if (token) {
         session.user.id = token.id as string;
@@ -60,7 +83,6 @@ export const authOptions: NextAuthOptions = {
         session.user.email = token.email;
         session.user.image = token.picture;
       }
-
       return session;
     },
     async jwt({ token, user }) {
