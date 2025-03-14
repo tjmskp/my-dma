@@ -2,7 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { compare } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 interface UserWithPassword {
@@ -12,6 +12,34 @@ interface UserWithPassword {
   password: string | null;
   image: string | null;
 }
+
+export const hashPassword = async (password: string) => {
+  return await hash(password, 12);
+};
+
+export const verifyPassword = async (password: string, hashedPassword: string) => {
+  return await compare(password, hashedPassword);
+};
+
+export const createUser = async (email: string, password: string, name?: string) => {
+  const existingUser = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+  });
+
+  if (existingUser) {
+    throw new Error("Email already exists");
+  }
+
+  const hashedPassword = await hashPassword(password);
+  
+  return prisma.user.create({
+    data: {
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      name: name || email.split('@')[0],
+    },
+  });
+};
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -50,7 +78,7 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Please use the login method you used to create your account");
         }
 
-        const isPasswordValid = await compare(credentials.password, user.password);
+        const isPasswordValid = await verifyPassword(credentials.password, user.password);
 
         if (!isPasswordValid) {
           throw new Error("Invalid email or password");
@@ -73,12 +101,20 @@ export const authOptions: NextAuthOptions = {
         });
         
         if (!existingUser) {
+          // Create a new user with Google credentials
           await prisma.user.create({
             data: {
               email: user.email!,
               name: user.name!,
               image: user.image,
+              emailVerified: new Date(), // Mark as verified since it's Google
             },
+          });
+        } else if (!existingUser.emailVerified) {
+          // If user exists but email not verified, verify it now
+          await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { emailVerified: new Date() },
           });
         }
       }
@@ -93,25 +129,34 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async jwt({ token, user }) {
-      const dbUser = await prisma.user.findFirst({
-        where: {
-          email: token.email!,
-        },
+    async jwt({ token, user, account, profile }) {
+      if (user) {
+        // Initial sign in
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+        token.picture = user.image;
+      }
+
+      if (account) {
+        token.provider = account.provider;
+      }
+
+      // Return previous token if the user hasn't changed
+      const existingUser = await prisma.user.findUnique({
+        where: { email: token.email! },
       });
 
-      if (!dbUser) {
-        if (user) {
-          token.id = user?.id;
-        }
+      if (!existingUser) {
         return token;
       }
 
       return {
-        id: dbUser.id,
-        name: dbUser.name,
-        email: dbUser.email,
-        picture: dbUser.image,
+        id: existingUser.id,
+        name: existingUser.name,
+        email: existingUser.email,
+        picture: existingUser.image,
+        provider: token.provider,
       };
     },
   },

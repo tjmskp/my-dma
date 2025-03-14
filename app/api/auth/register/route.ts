@@ -1,73 +1,47 @@
+import { createUser } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import { hash } from "bcryptjs";
-import { db } from "@/lib/db";
-import * as z from "zod";
-
-const userSchema = z.object({
-  username: z.string().min(1, "Username is required").max(100),
-  email: z.string().min(1, "Email is required").email("Invalid email"),
-  password: z
-    .string()
-    .min(1, "Password is required")
-    .min(8, "Password must have at least 8 characters"),
-});
 
 export async function POST(req: Request) {
   try {
-    const json = await req.json();
-    const body = userSchema.parse(json);
+    const { email, password, name } = await req.json();
 
-    // Check if email already exists
-    const existingUserByEmail = await db.user.findUnique({
-      where: { email: body.email },
-    });
-
-    if (existingUserByEmail) {
+    if (!email || !password) {
       return NextResponse.json(
-        {
-          user: null,
-          error: "User with this email already exists",
-        },
-        { status: 409 }
-      );
-    }
-
-    const hashedPassword = await hash(body.password, 10);
-
-    const newUser = await db.user.create({
-      data: {
-        name: body.username,
-        email: body.email,
-        password: hashedPassword,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        emailVerified: true,
-        image: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    return NextResponse.json(
-      {
-        user: newUser,
-        error: null,
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { user: null, error: error.issues },
+        { error: "Email and password are required" },
         { status: 400 }
       );
     }
 
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "Password must be at least 8 characters long" },
+        { status: 400 }
+      );
+    }
+
+    const user = await createUser(email, password, name);
+
     return NextResponse.json(
-      { user: null, error: "Internal Server Error" },
+      {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error: any) {
+    if (error.message === "Email already exists") {
+      return NextResponse.json(
+        { error: "Email already exists" },
+        { status: 400 }
+      );
+    }
+
+    console.error("Registration error:", error);
+    return NextResponse.json(
+      { error: "Something went wrong" },
       { status: 500 }
     );
   }

@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BarChart,
   Bot,
+  Calendar,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -66,6 +67,7 @@ export const Icons = {
   dollarSign: DollarSign,
   logout: LogOut,
   play: Play,
+  calendar: Calendar,
   google: ({ ...props }: LucideProps) => (
     <svg
       aria-hidden="true"
