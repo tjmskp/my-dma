@@ -1,12 +1,12 @@
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { NextAuthOptions } from "next-auth";
+import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { db } from "@/lib/db";
-import { compare } from "bcrypt";
+import { compare } from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(db),
+  adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
   },
@@ -26,25 +26,21 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null;
+          throw new Error("Invalid credentials");
         }
 
-        const user = await db.user.findUnique({
+        const user = await prisma.user.findUnique({
           where: { email: credentials.email }
         });
 
-        if (!user) {
-          return null;
+        if (!user || !user.password) {
+          throw new Error("Invalid credentials");
         }
 
-        if (!user.password) {
-          throw new Error("Please log in with the method you used to create your account");
-        }
+        const isPasswordValid = await compare(credentials.password, user.password);
 
-        const isValid = await compare(credentials.password, user.password);
-
-        if (!isValid) {
-          return null;
+        if (!isPasswordValid) {
+          throw new Error("Invalid credentials");
         }
 
         return {
@@ -54,20 +50,21 @@ export const authOptions: NextAuthOptions = {
           image: user.image,
         };
       }
-    })
+    }),
   ],
   callbacks: {
     async session({ token, session }) {
       if (token) {
-        session.user.id = token.id;
+        session.user.id = token.id as string;
         session.user.name = token.name;
         session.user.email = token.email;
         session.user.image = token.picture;
       }
+
       return session;
     },
     async jwt({ token, user }) {
-      const dbUser = await db.user.findFirst({
+      const dbUser = await prisma.user.findFirst({
         where: {
           email: token.email!,
         },
@@ -75,7 +72,7 @@ export const authOptions: NextAuthOptions = {
 
       if (!dbUser) {
         if (user) {
-          token.id = user.id;
+          token.id = user?.id;
         }
         return token;
       }

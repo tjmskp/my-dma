@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
 import { useForm } from "react-hook-form";
@@ -17,7 +17,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Icons } from "@/components/ui/icons";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -27,6 +27,7 @@ const formSchema = z.object({
 type FormData = z.infer<typeof formSchema>;
 
 export function LoginForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [isGoogleLoading, setIsGoogleLoading] = React.useState<boolean>(false);
@@ -52,17 +53,12 @@ export function LoginForm() {
     setIsLoading(false);
 
     if (!signInResult?.ok) {
-      return toast({
-        title: "Something went wrong.",
-        description: "Your sign in request failed. Please try again.",
-        variant: "destructive",
-      });
+      return toast.error("Invalid credentials");
     }
 
-    return toast({
-      title: "Success!",
-      description: "You have been signed in.",
-    });
+    toast.success("Logged in successfully");
+    router.refresh();
+    router.push(signInResult.url || "/dashboard");
   }
 
   const loginWithGoogle = async () => {
@@ -72,11 +68,7 @@ export function LoginForm() {
         callbackUrl: searchParams?.get("from") || "/dashboard",
       });
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "There was an error logging in with Google",
-        variant: "destructive",
-      });
+      toast.error("Error signing in with Google");
     } finally {
       setIsGoogleLoading(false);
     }
