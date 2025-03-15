@@ -48,24 +48,40 @@ export const createAdminUser = async () => {
   try {
     const existingAdmin = await prisma.user.findUnique({
       where: { email: adminEmail },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+      }
     });
 
-    if (!existingAdmin) {
-      const hashedPassword = await hashPassword(adminPassword);
-      
-      await prisma.user.create({
-        data: {
-          email: adminEmail,
-          password: hashedPassword,
-          name: "Admin",
-          role: "ADMIN",
-          emailVerified: new Date(),
-        },
-      });
-      console.log("Admin user created successfully");
+    if (existingAdmin) {
+      console.log("Admin user already exists:", existingAdmin);
+      return existingAdmin;
     }
+
+    const hashedPassword = await hashPassword(adminPassword);
+    
+    const newAdmin = await prisma.user.create({
+      data: {
+        email: adminEmail,
+        password: hashedPassword,
+        name: "Admin",
+        role: "ADMIN",
+        emailVerified: new Date(),
+      },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+      }
+    });
+    
+    console.log("Admin user created successfully:", newAdmin);
+    return newAdmin;
   } catch (error) {
     console.error("Error creating admin user:", error);
+    throw error;
   }
 };
 
@@ -103,20 +119,31 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() }
-        }) as UserWithPassword | null;
+          where: { email: credentials.email.toLowerCase() },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+            password: true,
+            role: true,
+          }
+        });
 
         if (!user) {
+          console.error("User not found:", credentials.email);
           throw new Error("Invalid email or password");
         }
 
         if (!user.password) {
+          console.error("User has no password:", user.email);
           throw new Error("Please use the login method you used to create your account");
         }
 
         const isPasswordValid = await verifyPassword(credentials.password, user.password);
 
         if (!isPasswordValid) {
+          console.error("Invalid password for user:", user.email);
           throw new Error("Invalid email or password");
         }
 
@@ -125,6 +152,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           image: user.image,
+          role: user.role,
         };
       }
     }),
