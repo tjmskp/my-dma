@@ -41,6 +41,34 @@ export const createUser = async (email: string, password: string, name?: string)
   });
 };
 
+export const createAdminUser = async () => {
+  const adminEmail = "admin@app.com";
+  const adminPassword = "pass1234";
+
+  try {
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: adminEmail },
+    });
+
+    if (!existingAdmin) {
+      const hashedPassword = await hashPassword(adminPassword);
+      
+      await prisma.user.create({
+        data: {
+          email: adminEmail,
+          password: hashedPassword,
+          name: "Admin",
+          role: "ADMIN",
+          emailVerified: new Date(),
+        },
+      });
+      console.log("Admin user created successfully");
+    }
+  } catch (error) {
+    console.error("Error creating admin user:", error);
+  }
+};
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
@@ -138,6 +166,7 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name;
         session.user.email = token.email;
         session.user.image = token.picture;
+        session.user.role = token.role as string;
       }
       return session;
     },
@@ -148,6 +177,7 @@ export const authOptions: NextAuthOptions = {
         token.email = user.email;
         token.name = user.name;
         token.picture = user.image;
+        token.role = (user as any).role;
       }
 
       if (account) {
@@ -169,6 +199,7 @@ export const authOptions: NextAuthOptions = {
         email: existingUser.email,
         picture: existingUser.image,
         provider: token.provider,
+        role: existingUser.role,
       };
     },
   },
