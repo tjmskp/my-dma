@@ -4,6 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { compare, hash } from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 
 interface UserWithPassword {
   id: string;
@@ -30,13 +31,25 @@ export const createUser = async (email: string, password: string, name?: string)
     throw new Error("Email already exists");
   }
 
+  // Create user in Supabase
+  const { data: supabaseUser, error: supabaseError } = await supabase.auth.signUp({
+    email: email.toLowerCase(),
+    password: password,
+  });
+
+  if (supabaseError) {
+    throw new Error(supabaseError.message);
+  }
+
   const hashedPassword = await hashPassword(password);
   
+  // Create user in Prisma
   return prisma.user.create({
     data: {
       email: email.toLowerCase(),
       password: hashedPassword,
       name: name || email.split('@')[0],
+      emailVerified: new Date(), // Since Supabase handles verification
     },
   });
 };
@@ -99,13 +112,6 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       allowDangerousEmailAccountLinking: true,
-      authorization: {
-        params: {
-          prompt: "consent",
-          access_type: "offline",
-          response_type: "code"
-        }
-      }
     }),
     CredentialsProvider({
       name: "credentials",
@@ -118,6 +124,18 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Please enter your email and password");
         }
 
+        // Authenticate with Supabase
+        const { data: supabaseAuth, error: supabaseError } = await supabase.auth.signInWithPassword({
+          email: credentials.email.toLowerCase(),
+          password: credentials.password,
+        });
+
+        if (supabaseError) {
+          console.error("Supabase auth error:", supabaseError);
+          throw new Error("Invalid email or password");
+        }
+
+        // Get user from Prisma
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase() },
           select: {
@@ -125,57 +143,50 @@ export const authOptions: NextAuthOptions = {
             email: true,
             name: true,
             image: true,
-            password: true,
             role: true,
           }
         });
 
         if (!user) {
-          console.error("User not found:", credentials.email);
-          throw new Error("Invalid email or password");
+          throw new Error("User not found");
         }
 
-        if (!user.password) {
-          console.error("User has no password:", user.email);
-          throw new Error("Please use the login method you used to create your account");
-        }
-
-        const isPasswordValid = await verifyPassword(credentials.password, user.password);
-
-        if (!isPasswordValid) {
-          console.error("Invalid password for user:", user.email);
-          throw new Error("Invalid email or password");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
-        };
+        return user;
       }
     }),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
+        const { data: supabaseUser, error: supabaseError } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+            },
+          },
+        });
+
+        if (supabaseError) {
+          console.error("Supabase OAuth error:", supabaseError);
+          return false;
+        }
+
         const existingUser = await prisma.user.findUnique({
           where: { email: user.email! },
         });
         
         if (!existingUser) {
-          // Create a new user with Google credentials
           await prisma.user.create({
             data: {
               email: user.email!,
               name: user.name!,
               image: user.image,
-              emailVerified: new Date(), // Mark as verified since it's Google
+              emailVerified: new Date(),
             },
           });
         } else {
-          // Update existing user with Google information
           await prisma.user.update({
             where: { id: existingUser.id },
             data: {
@@ -200,7 +211,6 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account, profile }) {
       if (user) {
-        // Initial sign in
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
@@ -212,7 +222,6 @@ export const authOptions: NextAuthOptions = {
         token.provider = account.provider;
       }
 
-      // Return previous token if the user hasn't changed
       const existingUser = await prisma.user.findUnique({
         where: { email: token.email! },
       });
